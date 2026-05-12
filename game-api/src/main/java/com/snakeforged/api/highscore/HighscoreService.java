@@ -1,10 +1,9 @@
 package com.snakeforged.api.highscore;
 
+import com.snakeforged.audit.AuditService;
 import com.snakeforged.domain.DifficultyConfig;
 import com.snakeforged.observability.MetricsService;
-import com.snakeforged.persistence.entity.AuditEvent;
 import com.snakeforged.persistence.entity.HighscoreEntry;
-import com.snakeforged.persistence.repository.AuditEventRepository;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,14 +21,14 @@ public class HighscoreService {
     static final int MAX_PLAUSIBLE_SCORE = 10_000;
 
     private final HighscoreRepository highscoreRepository;
-    private final AuditEventRepository auditEventRepository;
+    private final AuditService auditService;
     private final MetricsService metricsService;
 
     public HighscoreService(HighscoreRepository highscoreRepository,
-                            AuditEventRepository auditEventRepository,
+                            AuditService auditService,
                             MetricsService metricsService) {
         this.highscoreRepository = highscoreRepository;
-        this.auditEventRepository = auditEventRepository;
+        this.auditService = auditService;
         this.metricsService = metricsService;
     }
 
@@ -62,13 +61,7 @@ public class HighscoreService {
         entry.setDifficulty(config.name());
         HighscoreEntry saved = highscoreRepository.save(entry);
 
-        AuditEvent audit = new AuditEvent();
-        audit.setEventType("SCORE_SUBMITTED");
-        audit.setClientIpHash(clientIpHash);
-        audit.setNickname(request.nickname());
-        audit.setScore(request.score());
-        audit.setDifficulty(config.name());
-        auditEventRepository.save(audit);
+        auditService.recordScoreSubmitted(request.nickname(), request.score(), config.name(), clientIpHash);
 
         metricsService.recordSubmission();
         return saved;
