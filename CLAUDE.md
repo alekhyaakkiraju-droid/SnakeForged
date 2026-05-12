@@ -1,6 +1,38 @@
 ## Forge Development Standards
 
-# Forge Development Standards
+# Forge Development Standards — C#
+
+## Naming Conventions
+
+- Classes, methods, properties: PascalCase (`AuthService`, `GetUser`)
+- Local variables & parameters: camelCase (`userId`, `isActive`)
+- Interfaces: `I` prefix (`IAuthProvider`, `IUserRepository`)
+- Constants: PascalCase (`MaxRetries`) or UPPER_SNAKE for `const`
+- Private fields: `_camelCase` (`_logger`, `_dbContext`)
+- Namespaces: PascalCase, matching folder structure
+
+## Coding Standards
+
+- Use `async/await` for all I/O operations
+- Prefer LINQ for collection operations
+- Enable nullable reference types (`#nullable enable`)
+- Use records for immutable data shapes
+- Dependency injection via constructor; register in `Startup.cs` or `Program.cs`
+- Use `IDisposable` / `IAsyncDisposable` with `using` statements
+- Pattern matching over type-checking cascades
+
+## Type Safety
+
+Nullable reference types enabled. Avoid `dynamic`. Use generic constraints. Prefer pattern matching for type narrowing.
+
+## Module Structure
+
+.NET project/solution structure. One class per file. Namespaces mirror folder paths. Separate test projects (`*.Tests`).
+
+## Test Conventions
+
+- Test file pattern: `Foo.cs` -> `FooTests.cs` in a mirrored test project
+- Framework: xUnit (preferred) or NUnit with Moq for mocking
 
 Follow clean-code best practices for your project's language and framework.
 
