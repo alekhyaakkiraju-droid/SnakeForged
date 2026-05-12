@@ -33,6 +33,12 @@ server:
   port: 8080
   servlet:
     context-path: /
+  tomcat:
+    max-http-form-post-size: 4096
+
+app:
+  request:
+    max-body-bytes: 4096
 
 
 ratelimit:
