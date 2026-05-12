@@ -59,7 +59,7 @@ public class SecurityConfig {
                 // Disable Spring Security's default Cache-Control so controllers can set their own
                 .cacheControl(cacheControl -> cacheControl.disable())
                 .contentSecurityPolicy(csp ->
-                    csp.policyDirectives("default-src 'self'; script-src 'self'; style-src 'self'"))
+                    csp.policyDirectives("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"))
                 .frameOptions(frame -> frame.deny())
                 .contentTypeOptions(contentTypeOptions -> {})
                 .httpStrictTransportSecurity(hsts -> hsts
