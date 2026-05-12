@@ -2,6 +2,7 @@ package com.snakeforged.api.highscore;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snakeforged.config.SecurityConfig;
+import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.entity.HighscoreEntry;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,9 @@ class HighscoreControllerTest {
 
     @MockBean
     private HighscoreService highscoreService;
+
+    @MockBean
+    private MetricsService metricsService;
 
     // ── GET tests ─────────────────────────────────────────────────────────────
 

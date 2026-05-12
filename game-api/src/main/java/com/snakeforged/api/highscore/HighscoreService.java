@@ -1,6 +1,7 @@
 package com.snakeforged.api.highscore;
 
 import com.snakeforged.domain.DifficultyConfig;
+import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.entity.AuditEvent;
 import com.snakeforged.persistence.entity.HighscoreEntry;
 import com.snakeforged.persistence.repository.AuditEventRepository;
@@ -22,11 +23,14 @@ public class HighscoreService {
 
     private final HighscoreRepository highscoreRepository;
     private final AuditEventRepository auditEventRepository;
+    private final MetricsService metricsService;
 
     public HighscoreService(HighscoreRepository highscoreRepository,
-                            AuditEventRepository auditEventRepository) {
+                            AuditEventRepository auditEventRepository,
+                            MetricsService metricsService) {
         this.highscoreRepository = highscoreRepository;
         this.auditEventRepository = auditEventRepository;
+        this.metricsService = metricsService;
     }
 
     /**
@@ -42,10 +46,12 @@ public class HighscoreService {
         try {
             config = DifficultyConfig.fromName(request.difficulty());
         } catch (IllegalArgumentException e) {
+            metricsService.recordRejection();
             throw new IllegalArgumentException(e.getMessage());
         }
 
         if (request.score() > MAX_PLAUSIBLE_SCORE) {
+            metricsService.recordRejection();
             throw new IllegalArgumentException(
                     "Score " + request.score() + " is implausible for difficulty " + config.name());
         }
@@ -64,6 +70,7 @@ public class HighscoreService {
         audit.setDifficulty(config.name());
         auditEventRepository.save(audit);
 
+        metricsService.recordSubmission();
         return saved;
     }
 }
