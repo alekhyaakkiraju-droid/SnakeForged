@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+.forge-commit-ready
+*/build/
+*/out/
+*.class
+*.jar
+*.war
+*.exe
+.gradle/
+build/

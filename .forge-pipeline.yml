@@ -1,0 +1,86 @@
+apiVersion: shipping.forge.io/v1
+kind: Pipeline
+metadata:
+  name: SnakeForged CI/CD
+  id: dc93f5ec-43f4-4ef2-9cc8-1b004860c8aa
+  project: ee1c020c-6549-4a58-8db9-2b8c5564dfa2
+  engine: opsera
+  created: 2026-05-12T15:57:22.076Z
+spec:
+  steps:
+    - name: secrets-scan
+      type: scan
+      connector:
+        id: ""
+        type: ""
+      config:
+        variantId: scan:gitleaks
+        scanCommand: gitleaks detect --source . --report-format json --verbose
+        failOnBreach: fail
+        reportFormat: json
+        severityThreshold: high
+    - name: sast-scan
+      type: scan
+      connector:
+        id: ""
+        type: ""
+      config:
+        variantId: scan:semgrep
+        scanCommand: semgrep scan --config auto --json .
+        failOnBreach: warn
+        reportFormat: json
+        severityThreshold: high
+    - name: gradle-build
+      type: build
+      connector:
+        id: 91b57657-562e-4964-9221-32765d952f00
+        type: github
+      config:
+        branch: main
+        variantId: build:gradle
+        javaVersion: "17"
+        artifactPath: game-api/build/libs/*.jar
+        buildCommand: ./gradlew build
+        repoFullName: alekhyaakkiraju-droid/SnakeForged
+        gradleVersion: "8.8"
+    - name: docker-build
+      type: build
+      connector:
+        id: 91b57657-562e-4964-9221-32765d952f00
+        type: github
+      config:
+        branch: main
+        imageName: snakeforged
+        variantId: build:docker
+        dockerfile: Dockerfile
+        buildTarget: runtime
+        repoFullName: alekhyaakkiraju-droid/SnakeForged
+    - name: push-ecr
+      type: push
+      connector:
+        id: 7f72e0cc-3e3a-4893-bc45-ef213e294b28
+        type: aws
+      config:
+        tag: $GIT_SHA_SHORT
+        region: us-east-1
+        registry: $ECR_REGISTRY
+        imageName: snakeforged
+        variantId: push:ecr
+    - name: smoke-test
+      type: test
+      connector:
+        id: ""
+        type: ""
+      config:
+        variantId: test:generic
+        testCommand: curl -sf ${DEPLOY_URL}/actuator/health/liveness | grep -q '"status":"UP"'
+  variables:
+    DEPLOY_URL:
+      value: http://localhost:8080
+      secret: false
+    ECR_REGISTRY:
+      value: ""
+      secret: false
+  webhook:
+    enabled: true
+    branch: main
