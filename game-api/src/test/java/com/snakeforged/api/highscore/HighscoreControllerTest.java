@@ -1,5 +1,6 @@
 package com.snakeforged.api.highscore;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snakeforged.persistence.entity.HighscoreEntry;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import org.junit.jupiter.api.Test;
@@ -14,8 +15,11 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,8 +30,16 @@ class HighscoreControllerTest {
     @Autowired
     private MockMvc mvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockBean
     private HighscoreRepository highscoreRepository;
+
+    @MockBean
+    private HighscoreService highscoreService;
+
+    // ── GET tests ─────────────────────────────────────────────────────────────
 
     private HighscoreEntry entry(String nickname, int score, String difficulty) {
         HighscoreEntry e = new HighscoreEntry();
@@ -92,6 +104,79 @@ class HighscoreControllerTest {
     @Test
     void missingDifficultyParamReturns400WithMessage() throws Exception {
         mvc.perform(get("/api/v1/highscores"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ── POST tests ────────────────────────────────────────────────────────────
+
+    @Test
+    void validPostReturns201WithBody() throws Exception {
+        HighscoreEntry saved = entry("Alice", 100, "EASY");
+        when(highscoreService.submitScore(any(), any())).thenReturn(saved);
+
+        mvc.perform(post("/api/v1/highscores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new HighscoreRequestDTO("Alice", 100, "EASY"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nickname", is("Alice")))
+                .andExpect(jsonPath("$.score", is(100)))
+                .andExpect(jsonPath("$.difficulty", is("EASY")));
+    }
+
+    @Test
+    void emptyNicknameReturns400() throws Exception {
+        mvc.perform(post("/api/v1/highscores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new HighscoreRequestDTO("", 100, "EASY"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void nicknameWithSpecialCharsReturns400() throws Exception {
+        mvc.perform(post("/api/v1/highscores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new HighscoreRequestDTO("Alice!@#", 100, "EASY"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void negativeScoreReturns400() throws Exception {
+        mvc.perform(post("/api/v1/highscores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new HighscoreRequestDTO("Alice", -1, "EASY"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void invalidDifficultyOnPostReturns400() throws Exception {
+        when(highscoreService.submitScore(any(), any()))
+                .thenThrow(new IllegalArgumentException("Unknown difficulty: 'ULTRA'"));
+
+        mvc.perform(post("/api/v1/highscores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new HighscoreRequestDTO("Alice", 100, "ULTRA"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void implausibleScoreReturns400() throws Exception {
+        when(highscoreService.submitScore(any(), any()))
+                .thenThrow(new IllegalArgumentException("Score 99999 is implausible for difficulty EASY"));
+
+        mvc.perform(post("/api/v1/highscores")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new HighscoreRequestDTO("Alice", 99999, "EASY"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
