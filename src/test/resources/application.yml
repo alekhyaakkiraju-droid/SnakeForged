@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    username: sa
+    password:
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.snakeforged: DEBUG

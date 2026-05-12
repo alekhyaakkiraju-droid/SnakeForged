@@ -1,0 +1,38 @@
+.forge-commit-ready
+.forge/project-id
+.claude/hooks/
+
+# Build and compilation
+build/
+.gradle/
+*.jar
+*.exe
+out/
+target/
+*.class
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+.project
+.classpath
+.c9/
+
+# Logs
+logs/
+*.log
+
+# Database files
+*.h2.db
+*.mv.db
+data/
+
+# Environment-specific files
+.env
+.env.local
+application-local.yml

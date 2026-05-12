@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnakeForged - Classic Snake Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .status h2 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .status ul {
+            list-style-position: inside;
+            color: #555;
+        }
+
+        .status li {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .status li.ready {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐍 SnakeForged</h1>
+        <p>A modern Java-based web version of the classic Snake game.</p>
+
+        <div class="status">
+            <h2>✅ Application Status</h2>
+            <ul>
+                <li class="ready">✓ Spring Boot 3.3.x application initialized</li>
+                <li class="ready">✓ Embedded Tomcat running on port 8080</li>
+                <li class="ready">✓ Static assets being served successfully</li>
+                <li class="ready">✓ H2 database configured and ready</li>
+                <li class="ready">✓ Java 17 toolchain active</li>
+            </ul>
+        </div>
+
+        <p>The full Snake game implementation with game mechanics, leaderboard, and web UI is coming soon!</p>
+
+        <p>For development information and API documentation, see the <strong>README.md</strong> file.</p>
+
+        <div class="footer">
+            <p>SnakeForged v0.1.0-SNAPSHOT | Build Date: <span id="buildDate"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Display the current date as build date
+        const now = new Date();
+        const dateStr = now.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        document.getElementById('buildDate').textContent = dateStr;
+    </script>
+</body>
+</html>
