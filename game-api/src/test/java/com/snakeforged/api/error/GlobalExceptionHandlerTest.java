@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snakeforged.api.highscore.HighscoreController;
 import com.snakeforged.api.highscore.HighscoreRequestDTO;
 import com.snakeforged.api.highscore.HighscoreService;
+import com.snakeforged.config.SecurityConfig;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * is loaded without any explicit @Import.
  */
 @WebMvcTest(HighscoreController.class)
+@Import(SecurityConfig.class)
 class GlobalExceptionHandlerTest {
 
     @Autowired
