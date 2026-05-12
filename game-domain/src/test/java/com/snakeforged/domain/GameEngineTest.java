@@ -78,6 +78,46 @@ class GameEngineTest {
     }
 
     @Test
+    void snakeMovesLeftAfterDirectionChange() {
+        GameEngine e = engine(10, 10);
+        // First go UP to allow a LEFT turn (can't turn directly LEFT from RIGHT — reversal)
+        e.setDirection(Direction.UP);
+        e.tick();
+        Position before = e.getSnake().get(0);
+        e.setDirection(Direction.LEFT);
+        e.tick();
+        assertThat(e.getSnake().get(0)).isEqualTo(new Position(before.x() - 1, before.y()));
+    }
+
+    @Test
+    void snakeMovesDownAfterDirectionChange() {
+        GameEngine e = engine(10, 10);
+        e.setDirection(Direction.DOWN);
+        e.tick();
+        Position head = e.getSnake().get(0);
+        // head y increases when moving down
+        assertThat(head.y()).isGreaterThan(10 / 2);
+    }
+
+    @Test
+    void gameEngineWithDifficultyConfigExposesTickInterval() {
+        GameEngine e = new GameEngine(10, 10, DifficultyConfig.EASY, new Random(0));
+        assertThat(e.getDifficulty().getTickIntervalMs()).isEqualTo(100);
+    }
+
+    @Test
+    void gameEngineDifficultyDoesNotAffectGameMechanics() {
+        // HARD difficulty game behaves identically to EASY; tick interval is caller's concern
+        GameEngine easy = new GameEngine(10, 10, DifficultyConfig.EASY, new Random(0));
+        GameEngine hard = new GameEngine(10, 10, DifficultyConfig.HARD, new Random(0));
+        easy.tick();
+        hard.tick();
+        assertThat(easy.getSnake()).isEqualTo(hard.getSnake());
+        assertThat(easy.getScore()).isEqualTo(hard.getScore());
+        assertThat(easy.getStatus()).isEqualTo(hard.getStatus());
+    }
+
+    @Test
     void snakeBodyLengthStaysOneWhenNoFoodEaten() {
         GameEngine e = engine(10, 10);
         // Make sure the first tick doesn't land on food by using a large grid
