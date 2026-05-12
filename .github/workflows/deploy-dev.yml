@@ -1,0 +1,84 @@
+# Automated dev deployment after merge to `main`:
+# Gradle test → Docker build → ECR push → ECS dev update → smoke test.
+#
+# Required repository secrets:
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+# ECR_REGISTRY, ECR_REPOSITORY
+# ECS_CLUSTER_DEV, ECS_SERVICE_DEV
+# DEPLOY_URL_DEV — public HTTPS base URL (`terraform output application_url` for dev workspace).
+
+name: Deploy Dev
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Gradle build & test
+        run: chmod +x ./gradlew && ./gradlew build --no-daemon
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          TAG="${GITHUB_SHA:0:7}"
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$TAG"
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+          echo "IMAGE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Deploy to ECS (dev)
+        env:
+          ECS_CLUSTER_DEV: ${{ secrets.ECS_CLUSTER_DEV }}
+          ECS_SERVICE_DEV: ${{ secrets.ECS_SERVICE_DEV }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          chmod +x scripts/deploy-ecs.sh
+          ./scripts/deploy-ecs.sh "$ECS_CLUSTER_DEV" "$ECS_SERVICE_DEV" \
+            "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Wait for ECS service stability
+        env:
+          ECS_CLUSTER_DEV: ${{ secrets.ECS_CLUSTER_DEV }}
+          ECS_SERVICE_DEV: ${{ secrets.ECS_SERVICE_DEV }}
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER_DEV" \
+            --services "$ECS_SERVICE_DEV"
+
+      - name: Smoke test (dev)
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL_DEV }}
+        run: chmod +x scripts/smoke-test.sh && ./scripts/smoke-test.sh "$DEPLOY_URL"

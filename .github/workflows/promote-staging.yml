@@ -1,0 +1,68 @@
+# Manual promotion Dev → Staging — deploy an **existing ECR tag** promoted from dev CI.
+#
+# Configure GitHub Environment **staging** (Settings → Environments):
+# Optional: enable **required reviewers** or deployment wait timers for an extra promotion gate.
+#
+# Environment-scoped or repository secrets (staging):
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+# ECR_REGISTRY, ECR_REPOSITORY
+# ECS_CLUSTER_STAGING, ECS_SERVICE_STAGING
+# DEPLOY_URL_STAGING
+
+name: Promote to Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "ECR tag to deploy (seven-char Git SHA from dev workflow)"
+        required: true
+        type: string
+
+concurrency:
+  group: promote-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy image to ECS (staging)
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          ECS_CLUSTER_STAGING: ${{ secrets.ECS_CLUSTER_STAGING }}
+          ECS_SERVICE_STAGING: ${{ secrets.ECS_SERVICE_STAGING }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          chmod +x scripts/deploy-ecs.sh
+          ./scripts/deploy-ecs.sh "$ECS_CLUSTER_STAGING" "$ECS_SERVICE_STAGING" \
+            "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Wait for ECS service stability
+        env:
+          ECS_CLUSTER_STAGING: ${{ secrets.ECS_CLUSTER_STAGING }}
+          ECS_SERVICE_STAGING: ${{ secrets.ECS_SERVICE_STAGING }}
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER_STAGING" \
+            --services "$ECS_SERVICE_STAGING"
+
+      - name: Smoke test (staging)
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL_STAGING }}
+        run: chmod +x scripts/smoke-test.sh && ./scripts/smoke-test.sh "$DEPLOY_URL"

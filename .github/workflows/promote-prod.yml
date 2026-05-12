@@ -1,0 +1,68 @@
+# Manual promotion Staging → Production — identical image tag semantics as staging workflow.
+#
+# Configure GitHub Environment **production** (Settings → Environments):
+# Required reviewers ≥ 1 satisfies “Production deployment requires at least one approver”.
+#
+# Environment-scoped or repository secrets (production):
+# AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+# ECR_REGISTRY, ECR_REPOSITORY
+# ECS_CLUSTER_PRODUCTION, ECS_SERVICE_PRODUCTION
+# DEPLOY_URL_PRODUCTION
+
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "ECR tag to deploy (seven-char Git SHA validated in staging)"
+        required: true
+        type: string
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy image to ECS (production)
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          ECS_CLUSTER_PRODUCTION: ${{ secrets.ECS_CLUSTER_PRODUCTION }}
+          ECS_SERVICE_PRODUCTION: ${{ secrets.ECS_SERVICE_PRODUCTION }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          chmod +x scripts/deploy-ecs.sh
+          ./scripts/deploy-ecs.sh "$ECS_CLUSTER_PRODUCTION" "$ECS_SERVICE_PRODUCTION" \
+            "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Wait for ECS service stability
+        env:
+          ECS_CLUSTER_PRODUCTION: ${{ secrets.ECS_CLUSTER_PRODUCTION }}
+          ECS_SERVICE_PRODUCTION: ${{ secrets.ECS_SERVICE_PRODUCTION }}
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER_PRODUCTION" \
+            --services "$ECS_SERVICE_PRODUCTION"
+
+      - name: Smoke test (production)
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL_PRODUCTION }}
+        run: chmod +x scripts/smoke-test.sh && ./scripts/smoke-test.sh "$DEPLOY_URL"
