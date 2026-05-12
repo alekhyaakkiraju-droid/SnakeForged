@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="description" content="SnakeForged – a fully accessible classic Snake game playable in any browser.">
     <title>SnakeForged - Classic Snake Game</title>
     <style>
         /* ── Reset ─────────────────────────────────────────────────────────── */
@@ -251,10 +253,14 @@
             display: block;
             width: 100%;
             max-width: 480px;
-            aspect-ratio: 1;
+            /* aspect-ratio fallback for browsers that predate the property */
+            aspect-ratio: 1 / 1;
             border-radius: var(--radius);
             background: #0f172a;
             margin: 0 auto;
+            /* Prevent touch events from triggering scroll / zoom on the canvas */
+            touch-action: none;
+            -ms-touch-action: none;
         }
 
         .keyboard-hint {
@@ -329,6 +335,51 @@
 
         /* ── Hidden screens ─────────────────────────────────────────────────── */
         [hidden] { display: none !important; }
+
+        /*
+         * ── CSS :has() fallback ──────────────────────────────────────────────
+         * The .checked class is added by JS for browsers that do not yet
+         * support the :has() pseudo-class (older Firefox / Safari versions).
+         */
+        .difficulty-options label.checked {
+            background: #dbeafe;
+            color: var(--color-primary);
+        }
+        body.high-contrast .difficulty-options label.checked {
+            background: #333;
+            color: var(--color-primary);
+        }
+
+        /* ── Touch-friendly tap targets (min 44×44 px, per WCAG 2.5.5) ──────── */
+        @media (pointer: coarse) {
+            button           { min-height: 44px; }
+            .difficulty-options label { min-height: 44px; padding: 0.5rem 0.75rem; }
+        }
+
+        /* ── Responsive: 320px – 480px (phones) ─────────────────────────────── */
+        @media (max-width: 480px) {
+            body            { padding: 0.5rem; }
+            .container      { padding: 1.25rem; border-radius: 8px; }
+            h1              { font-size: 1.75rem; }
+            h2              { font-size: 1.3rem; }
+            .subtitle       { font-size: 0.95rem; }
+            .action-row button { min-width: 0; }
+            /* Stack nickname input + submit on very narrow viewports */
+            .input-row      { flex-direction: column; }
+            .input-row button { width: 100%; }
+            .game-controls button { padding: 0.5rem 0.85rem; font-size: 0.9rem; }
+            .keyboard-hint  { display: none; } /* Arrow keys unavailable on mobile */
+        }
+
+        /* ── Responsive: 481px – 768px (tablets / small laptops) ──────────── */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .container { padding: 1.5rem; }
+        }
+
+        /* ── Wide screens: 1920px – centre and cap at comfortable width ──────── */
+        @media (min-width: 1280px) {
+            body { padding: 2rem; }
+        }
     </style>
 </head>
 <body>
@@ -545,9 +596,22 @@
             return document.querySelector('input[name="difficulty"]:checked')?.value ?? 'EASY';
         }
 
+        // ── HiDPI canvas setup ────────────────────────────────────────────────
+        // Scale the canvas backing store by devicePixelRatio so it renders
+        // sharply on retina / high-DPI displays. The CSS size stays at 480px
+        // (controlled by the stylesheet); only the internal resolution scales.
+        const LOGICAL_SIZE = 480;
+        function initCanvasResolution() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width  = LOGICAL_SIZE * dpr;
+            canvas.height = LOGICAL_SIZE * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        initCanvasResolution();
+
         // ── Game state ────────────────────────────────────────────────────────
         const COLS = 20, ROWS = 20;
-        const CELL = canvas.width / COLS;
+        const CELL = LOGICAL_SIZE / COLS;   // always based on logical pixels
 
         let snake, direction, nextDir, food, score, gameRunning, paused, loopId;
 
@@ -629,6 +693,35 @@
         function stopLoop() {
             clearInterval(loopId);
         }
+
+        // ── Touch / swipe input (mobile gameplay) ────────────────────────────
+        // Minimum swipe distance in CSS pixels to register as intentional.
+        const SWIPE_THRESHOLD = 20;
+        let touchStartX = 0, touchStartY = 0;
+
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+
+            if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
+            if (!gameRunning || paused) return;
+
+            let d;
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                d = dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+            } else {
+                d = dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 };
+            }
+            // Prevent 180° reversal
+            if (d.x !== -direction.x || d.y !== -direction.y) nextDir = d;
+        }, { passive: false });
 
         // ── Drawing ───────────────────────────────────────────────────────────
         const COLOR = {
@@ -844,6 +937,21 @@
                 btnSubmit.disabled = false;
             }
         });
+
+        // ── CSS :has() polyfill for older browsers ────────────────────────────
+        // Firefox < 121 and Safari < 15.4 do not support :has(). The .checked
+        // class is toggled via JS so the selected difficulty is still visually
+        // highlighted in those browsers.
+        function updateDifficultyHighlight() {
+            document.querySelectorAll('.difficulty-options label').forEach(label => {
+                const input = label.querySelector('input');
+                label.classList.toggle('checked', input ? input.checked : false);
+            });
+        }
+        document.querySelectorAll('input[name="difficulty"]').forEach(input => {
+            input.addEventListener('change', updateDifficultyHighlight);
+        });
+        updateDifficultyHighlight(); // apply on load
 
         // ── Init: show start screen ───────────────────────────────────────────
         showScreen(screenStart, btnStart);
