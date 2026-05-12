@@ -1,9 +1,8 @@
 package com.snakeforged.api.highscore;
 
+import com.snakeforged.audit.AuditService;
 import com.snakeforged.observability.MetricsService;
-import com.snakeforged.persistence.entity.AuditEvent;
 import com.snakeforged.persistence.entity.HighscoreEntry;
-import com.snakeforged.persistence.repository.AuditEventRepository;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -23,16 +22,16 @@ import static org.mockito.Mockito.when;
 class HighscoreServiceTest {
 
     private HighscoreRepository highscoreRepository;
-    private AuditEventRepository auditEventRepository;
+    private AuditService auditService;
     private SimpleMeterRegistry meterRegistry;
     private HighscoreService service;
 
     @BeforeEach
     void setUp() {
         highscoreRepository = mock(HighscoreRepository.class);
-        auditEventRepository = mock(AuditEventRepository.class);
+        auditService = mock(AuditService.class);
         meterRegistry = new SimpleMeterRegistry();
-        service = new HighscoreService(highscoreRepository, auditEventRepository,
+        service = new HighscoreService(highscoreRepository, auditService,
                 new MetricsService(meterRegistry));
     }
 
@@ -54,7 +53,6 @@ class HighscoreServiceTest {
     void validSubmissionPersistsHighscore() {
         HighscoreRequestDTO req = new HighscoreRequestDTO("Alice", 100, "EASY");
         when(highscoreRepository.save(any())).thenReturn(savedEntry("Alice", 100, "EASY"));
-        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
 
         HighscoreEntry result = service.submitScore(req, "abc123hash");
 
@@ -67,25 +65,16 @@ class HighscoreServiceTest {
     void validSubmissionCreatesAuditEvent() {
         HighscoreRequestDTO req = new HighscoreRequestDTO("Bob", 200, "MEDIUM");
         when(highscoreRepository.save(any())).thenReturn(savedEntry("Bob", 200, "MEDIUM"));
-        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
 
         service.submitScore(req, "hashedip");
 
-        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
-        verify(auditEventRepository).save(captor.capture());
-        AuditEvent audit = captor.getValue();
-        assertThat(audit.getEventType()).isEqualTo("SCORE_SUBMITTED");
-        assertThat(audit.getNickname()).isEqualTo("Bob");
-        assertThat(audit.getScore()).isEqualTo(200);
-        assertThat(audit.getDifficulty()).isEqualTo("MEDIUM");
-        assertThat(audit.getClientIpHash()).isEqualTo("hashedip");
+        verify(auditService).recordScoreSubmitted("Bob", 200, "MEDIUM", "hashedip");
     }
 
     @Test
     void caseInsensitiveDifficultyIsNormalized() {
         HighscoreRequestDTO req = new HighscoreRequestDTO("Carol", 50, "hard");
         when(highscoreRepository.save(any())).thenReturn(savedEntry("Carol", 50, "HARD"));
-        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
 
         HighscoreEntry result = service.submitScore(req, "hash");
 
@@ -116,7 +105,6 @@ class HighscoreServiceTest {
     void maxPlausibleScoreIsAccepted() {
         HighscoreRequestDTO req = new HighscoreRequestDTO("Frank", HighscoreService.MAX_PLAUSIBLE_SCORE, "EASY");
         when(highscoreRepository.save(any())).thenReturn(savedEntry("Frank", HighscoreService.MAX_PLAUSIBLE_SCORE, "EASY"));
-        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
 
         HighscoreEntry result = service.submitScore(req, "hash");
 
@@ -128,7 +116,6 @@ class HighscoreServiceTest {
     @Test
     void successfulSubmissionIncrementsSubmissionsTotalCounter() {
         when(highscoreRepository.save(any())).thenReturn(savedEntry("Alice", 100, "EASY"));
-        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
 
         service.submitScore(new HighscoreRequestDTO("Alice", 100, "EASY"), "hash");
 
@@ -159,7 +146,6 @@ class HighscoreServiceTest {
     @Test
     void multipleSuccessfulSubmissionsAccumulateCounter() {
         when(highscoreRepository.save(any())).thenReturn(savedEntry("X", 1, "EASY"));
-        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
 
         service.submitScore(new HighscoreRequestDTO("X", 1, "EASY"), "h1");
         service.submitScore(new HighscoreRequestDTO("X", 2, "MEDIUM"), "h2");
