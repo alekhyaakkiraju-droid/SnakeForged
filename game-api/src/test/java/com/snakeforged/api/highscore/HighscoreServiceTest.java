@@ -1,9 +1,12 @@
 package com.snakeforged.api.highscore;
 
+import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.entity.AuditEvent;
 import com.snakeforged.persistence.entity.HighscoreEntry;
 import com.snakeforged.persistence.repository.AuditEventRepository;
 import com.snakeforged.persistence.repository.HighscoreRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -21,13 +24,21 @@ class HighscoreServiceTest {
 
     private HighscoreRepository highscoreRepository;
     private AuditEventRepository auditEventRepository;
+    private SimpleMeterRegistry meterRegistry;
     private HighscoreService service;
 
     @BeforeEach
     void setUp() {
         highscoreRepository = mock(HighscoreRepository.class);
         auditEventRepository = mock(AuditEventRepository.class);
-        service = new HighscoreService(highscoreRepository, auditEventRepository);
+        meterRegistry = new SimpleMeterRegistry();
+        service = new HighscoreService(highscoreRepository, auditEventRepository,
+                new MetricsService(meterRegistry));
+    }
+
+    private double counter(String name) {
+        Counter c = meterRegistry.find(name).counter();
+        return c == null ? 0.0 : c.count();
     }
 
     private HighscoreEntry savedEntry(String nickname, int score, String difficulty) {
@@ -110,5 +121,50 @@ class HighscoreServiceTest {
         HighscoreEntry result = service.submitScore(req, "hash");
 
         assertThat(result.getScore()).isEqualTo(HighscoreService.MAX_PLAUSIBLE_SCORE);
+    }
+
+    // ── Micrometer counter tests ──────────────────────────────────────────────
+
+    @Test
+    void successfulSubmissionIncrementsSubmissionsTotalCounter() {
+        when(highscoreRepository.save(any())).thenReturn(savedEntry("Alice", 100, "EASY"));
+        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
+
+        service.submitScore(new HighscoreRequestDTO("Alice", 100, "EASY"), "hash");
+
+        assertThat(counter("snakeweb_highscore_submissions_total")).isEqualTo(1.0);
+        assertThat(counter("snakeweb_highscore_submissions_rejected_total")).isEqualTo(0.0);
+    }
+
+    @Test
+    void invalidDifficultyIncrementsRejectedCounter() {
+        assertThatThrownBy(() ->
+                service.submitScore(new HighscoreRequestDTO("Alice", 100, "INVALID"), "hash"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(counter("snakeweb_highscore_submissions_rejected_total")).isEqualTo(1.0);
+        assertThat(counter("snakeweb_highscore_submissions_total")).isEqualTo(0.0);
+    }
+
+    @Test
+    void implausibleScoreIncrementsRejectedCounter() {
+        assertThatThrownBy(() ->
+                service.submitScore(
+                        new HighscoreRequestDTO("Alice", HighscoreService.MAX_PLAUSIBLE_SCORE + 1, "EASY"), "hash"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(counter("snakeweb_highscore_submissions_rejected_total")).isEqualTo(1.0);
+    }
+
+    @Test
+    void multipleSuccessfulSubmissionsAccumulateCounter() {
+        when(highscoreRepository.save(any())).thenReturn(savedEntry("X", 1, "EASY"));
+        when(auditEventRepository.save(any())).thenReturn(new AuditEvent());
+
+        service.submitScore(new HighscoreRequestDTO("X", 1, "EASY"), "h1");
+        service.submitScore(new HighscoreRequestDTO("X", 2, "MEDIUM"), "h2");
+        service.submitScore(new HighscoreRequestDTO("X", 3, "HARD"), "h3");
+
+        assertThat(counter("snakeweb_highscore_submissions_total")).isEqualTo(3.0);
     }
 }

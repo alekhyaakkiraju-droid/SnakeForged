@@ -2,6 +2,7 @@ package com.snakeforged.config;
 
 import com.snakeforged.api.highscore.HighscoreController;
 import com.snakeforged.api.highscore.HighscoreService;
+import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,9 @@ class RequestBodySizeLimitFilterTest {
 
     @MockBean
     private HighscoreService highscoreService;
+
+    @MockBean
+    private MetricsService metricsService;
 
     private static final String ENDPOINT = "/api/v1/highscores";
 

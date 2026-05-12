@@ -39,6 +39,11 @@ server:
 app:
   request:
     max-body-bytes: 4096
+  metrics:
+    # Override with OPERATOR_TOKEN env var in production. Used for HTTP Basic auth
+    # on /actuator/prometheus so only authorised scrapers (e.g. Prometheus server)
+    # can access metrics.
+    operator-token: ${OPERATOR_TOKEN:changeme-dev-only}
 
 
 ratelimit:
@@ -50,7 +55,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
   endpoint:
     health:
       show-details: never

@@ -5,6 +5,7 @@ import com.snakeforged.api.highscore.HighscoreController;
 import com.snakeforged.api.highscore.HighscoreRequestDTO;
 import com.snakeforged.api.highscore.HighscoreService;
 import com.snakeforged.config.SecurityConfig;
+import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.repository.HighscoreRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,9 @@ class GlobalExceptionHandlerTest {
 
     @MockBean
     private HighscoreService highscoreService;
+
+    @MockBean
+    private MetricsService metricsService;
 
     // ── 400 structured error ──────────────────────────────────────────────────
 

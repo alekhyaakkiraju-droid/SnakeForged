@@ -1,9 +1,11 @@
 package com.snakeforged.config;
 
 import com.snakeforged.api.difficulty.DifficultyController;
+import com.snakeforged.observability.MetricsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +21,9 @@ class SecurityConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private MetricsService metricsService;
 
     @Test
     void responseIncludesContentSecurityPolicy() throws Exception {
