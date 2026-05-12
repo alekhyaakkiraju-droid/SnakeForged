@@ -1,10 +1,14 @@
 package com.snakeforged.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -15,7 +19,12 @@ class RateLimitFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new RateLimitFilter(3, 60);
+        StaticMessageSource messageSource = new StaticMessageSource();
+        messageSource.addMessage(
+                "error.rate_limit.exceeded",
+                Locale.ENGLISH,
+                "Rate limit exceeded — max {0} requests per {1} seconds");
+        filter = new RateLimitFilter(3, 60, messageSource, new ObjectMapper());
     }
 
     private MockHttpServletRequest postHighscores(String ip) {

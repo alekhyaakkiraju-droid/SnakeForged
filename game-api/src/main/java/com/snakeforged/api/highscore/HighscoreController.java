@@ -34,7 +34,7 @@ public class HighscoreController {
 
     @GetMapping
     public ResponseEntity<List<HighscoreDTO>> getHighscores(@RequestParam String difficulty) {
-        DifficultyConfig config = DifficultyConfig.fromName(difficulty); // throws IAE → GlobalExceptionHandler
+        DifficultyConfig config = DifficultyConfig.fromName(difficulty); // throws DifficultyResolutionException → handler
         List<HighscoreDTO> scores = highscoreRepository
                 .findTop10ByDifficultyOrderByScoreDesc(config.name())
                 .stream()

@@ -12,6 +12,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import com.snakeforged.domain.DifficultyResolutionException;
+import com.snakeforged.domain.ImplausibleScoreException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -165,7 +167,7 @@ class HighscoreControllerTest {
     @Test
     void invalidDifficultyOnPostReturns400() throws Exception {
         when(highscoreService.submitScore(any(), any()))
-                .thenThrow(new IllegalArgumentException("Unknown difficulty: 'ULTRA'"));
+                .thenThrow(new DifficultyResolutionException("ULTRA"));
 
         mvc.perform(post("/api/v1/highscores")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -178,7 +180,7 @@ class HighscoreControllerTest {
     @Test
     void implausibleScoreReturns400() throws Exception {
         when(highscoreService.submitScore(any(), any()))
-                .thenThrow(new IllegalArgumentException("Score 99999 is implausible for difficulty EASY"));
+                .thenThrow(new ImplausibleScoreException(99999, "EASY"));
 
         mvc.perform(post("/api/v1/highscores")
                         .contentType(MediaType.APPLICATION_JSON)

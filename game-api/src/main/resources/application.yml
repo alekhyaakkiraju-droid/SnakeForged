@@ -1,6 +1,9 @@
 spring:
   application:
     name: snakeforged
+  messages:
+    basename: messages
+    encoding: UTF-8
   jpa:
     hibernate:
       ddl-auto: none

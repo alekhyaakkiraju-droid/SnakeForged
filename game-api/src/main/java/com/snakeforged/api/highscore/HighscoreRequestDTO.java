@@ -8,15 +8,15 @@ import jakarta.validation.constraints.Size;
 
 public record HighscoreRequestDTO(
 
-        @NotBlank(message = "Nickname is required")
-        @Size(max = 20, message = "Nickname must be at most 20 characters")
-        @Pattern(regexp = "[A-Za-z0-9_]+", message = "Nickname may only contain letters, digits, and underscores")
+        @NotBlank(message = "{validation.nickname.blank}")
+        @Size(max = 20, message = "{validation.nickname.size}")
+        @Pattern(regexp = "[A-Za-z0-9_]+", message = "{validation.nickname.pattern}")
         String nickname,
 
-        @NotNull(message = "Score is required")
-        @Min(value = 0, message = "Score must be non-negative")
+        @NotNull(message = "{validation.score.null}")
+        @Min(value = 0, message = "{validation.score.min}")
         Integer score,
 
-        @NotBlank(message = "Difficulty is required")
+        @NotBlank(message = "{validation.difficulty.blank}")
         String difficulty
 ) {}

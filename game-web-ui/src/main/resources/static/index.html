@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e40af">
-    <meta name="description" content="SnakeForged – a fully accessible classic Snake game playable in any browser.">
-    <title>SnakeForged - Classic Snake Game</title>
+    <meta name="description" content="">
+    <title>SnakeForged</title>
     <style>
         /* ── Reset ─────────────────────────────────────────────────────────── */
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -385,7 +385,7 @@
 <body>
 
     <!-- Skip to content link (Tab from address bar) -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#main-content" class="skip-link" data-i18n="skip.toMain"></a>
 
     <!--
         ARIA live regions – visually hidden; announced by screen readers.
@@ -396,12 +396,13 @@
     <div id="game-announcer"  aria-live="assertive" aria-atomic="true" class="sr-only"></div>
 
     <!-- ── Persistent toolbar ──────────────────────────────────────────────── -->
-    <div class="toolbar" role="toolbar" aria-label="Application controls">
+    <div class="toolbar" role="toolbar" data-i18n-aria-label="toolbar.ariaLabel">
         <button id="contrast-toggle"
+                type="button"
                 aria-pressed="false"
-                title="Toggle high-contrast mode">
+                data-i18n-title="toolbar.contrastTitle">
             <span aria-hidden="true">◑</span>
-            High Contrast
+            <span data-i18n="toolbar.contrastVisibleLabel"></span>
         </button>
     </div>
 
@@ -411,33 +412,29 @@
         <!-- ═══ START SCREEN ════════════════════════════════════════════════ -->
         <section id="screen-start"
                  class="container"
-                 aria-label="Game start screen">
-            <h1>🐍 SnakeForged</h1>
-            <p class="subtitle">
-                A classic Snake game. Use the arrow keys or WASD to guide your
-                snake, eat the food to grow, and avoid the walls and yourself.
-            </p>
+                 data-i18n-aria-label="screen.start.ariaLabel">
+            <h1 data-i18n="start.title"></h1>
+            <p class="subtitle" data-i18n="start.tagline"></p>
 
             <fieldset class="difficulty-group">
-                <legend>Select Difficulty</legend>
+                <legend data-i18n="difficulty.legend"></legend>
                 <div class="difficulty-options">
                     <label>
                         <input type="radio" name="difficulty" value="EASY" checked>
-                        Easy
+                        <span data-i18n="difficulty.easyOption"></span>
                     </label>
                     <label>
                         <input type="radio" name="difficulty" value="MEDIUM">
-                        Medium
+                        <span data-i18n="difficulty.mediumOption"></span>
                     </label>
                     <label>
                         <input type="radio" name="difficulty" value="HARD">
-                        Hard
+                        <span data-i18n="difficulty.hardOption"></span>
                     </label>
                 </div>
             </fieldset>
 
-            <button id="btn-start" class="btn-primary" style="width:100%;font-size:1.15rem;padding:.8rem 0;">
-                Start Game
+            <button id="btn-start" type="button" class="btn-primary" style="width:100%;font-size:1.15rem;padding:.8rem 0;" data-i18n="start.button">
             </button>
         </section>
 
@@ -445,22 +442,23 @@
         <section id="screen-game"
                  class="container"
                  hidden
-                 aria-label="Snake game in progress">
+                 data-i18n-aria-label="game.screenAriaLabel">
 
             <div class="game-header">
                 <div class="score-panel">
-                    <span class="score-label" id="score-label">Score</span>
+                    <span class="score-label" id="score-label" data-i18n="score.label"></span>
                     <span id="score-value"
                           aria-labelledby="score-label"
                           aria-live="off">0</span>
                 </div>
                 <div class="game-controls">
                     <button id="btn-pause"
+                            type="button"
                             class="btn-secondary"
-                            aria-pressed="false">
-                        Pause
+                            aria-pressed="false"
+                            data-i18n="game.pauseInitial">
                     </button>
-                    <button id="btn-quit" class="btn-danger">Quit</button>
+                    <button id="btn-quit" type="button" class="btn-danger" data-i18n="game.quit"></button>
                 </div>
             </div>
 
@@ -473,15 +471,12 @@
                     width="480"
                     height="480"
                     role="application"
-                    aria-label="Snake game board. Use Arrow Keys or W A S D to control the snake. Eat the red food to score points. Avoid walls and yourself."
+                    data-i18n-aria-label="canvas.ariaLabel"
                     tabindex="0">
-                Your browser does not support the HTML Canvas element.
+                <span data-i18n="canvas.fallbackText"></span>
             </canvas>
 
-            <p class="keyboard-hint" aria-hidden="true">
-                ↑ ↓ ← →  or  W A S D  to move &nbsp;·&nbsp;
-                <kbd>P</kbd> to pause &nbsp;·&nbsp;
-                <kbd>Q</kbd> to quit
+            <p class="keyboard-hint" aria-hidden="true" data-i18n="keyboard.hintsHidden">
             </p>
         </section>
 
@@ -489,23 +484,23 @@
         <section id="screen-result"
                  class="container"
                  hidden
-                 aria-label="Game result screen">
+                 data-i18n-aria-label="result.screenAriaLabel">
 
             <span id="result-icon" class="result-icon" aria-hidden="true">💀</span>
-            <h2 id="result-heading">Game Over</h2>
+            <h2 id="result-heading" data-i18n="result.gameOverTitle"></h2>
             <p id="result-message" class="subtitle"></p>
 
             <div class="final-score-block">
                 <div class="final-score-number" id="final-score">0</div>
-                <div class="final-score-caption">Final Score</div>
+                <div class="final-score-caption" data-i18n="nickname.finalCaption"></div>
             </div>
 
             <form id="submit-form"
                   class="submit-form"
-                  aria-label="Submit score to leaderboard"
+                  data-i18n-aria-label="submit.formAriaLabel"
                   novalidate>
                 <label for="nickname-input">
-                    Nickname
+                    <span data-i18n="nickname.labelPrefix"></span>
                     <span aria-hidden="true" style="color:var(--color-danger)"> *</span>
                 </label>
                 <div class="input-row">
@@ -514,29 +509,73 @@
                            name="nickname"
                            maxlength="20"
                            autocomplete="nickname"
-                           placeholder="e.g. SnakeMaster"
+                           data-i18n-placeholder="nickname.placeholder"
                            aria-required="true"
                            aria-describedby="nickname-hint submit-status"
-                           pattern="[A-Za-z0-9]{1,20}">
-                    <button type="submit" class="btn-primary" id="btn-submit">Submit</button>
+                           pattern="[A-Za-z0-9_]{1,20}">
+                    <button type="submit" class="btn-primary" id="btn-submit" data-i18n="nickname.submit"></button>
                 </div>
-                <p id="nickname-hint" class="sr-only">
-                    1 to 20 alphanumeric characters.
+                <p id="nickname-hint" class="sr-only" data-i18n="nickname.patternHintSr">
                 </p>
                 <div id="submit-status" role="status" aria-live="polite"></div>
             </form>
 
             <div class="action-row">
-                <button id="btn-play-again" class="btn-primary">Play Again</button>
-                <button id="btn-main-menu"  class="btn-secondary">Main Menu</button>
+                <button type="button" id="btn-play-again" class="btn-primary" data-i18n="action.playAgain"></button>
+                <button type="button" id="btn-main-menu"  class="btn-secondary" data-i18n="action.mainMenu"></button>
             </div>
         </section>
 
     </main>
 
     <script>
-    (() => {
+    (async () => {
         'use strict';
+
+        const LOCALE_URL = new URL('locales/en.json', document.baseURI).href;
+        const STRINGS = await fetch(LOCALE_URL).then(resp => {
+            if (!resp.ok) {
+                throw new Error(`Failed to load locales: HTTP ${resp.status}`);
+            }
+            return resp.json();
+        });
+
+        function t(key) {
+            const val = STRINGS[key];
+            if (typeof val !== 'string') {
+                console.warn('Missing locale entry:', key);
+                return key;
+            }
+            return val;
+        }
+
+        function format(template, vars) {
+            let s = template;
+            for (const [k, v] of Object.entries(vars)) {
+                s = s.split(`{${k}}`).join(String(v));
+            }
+            return s;
+        }
+
+        function hydrateStaticStrings() {
+            document.querySelector('meta[name="description"]')
+                    ?.setAttribute('content', t('meta.description'));
+            document.title = t('meta.pageTitle');
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = t(el.dataset.i18n);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
+            });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                el.setAttribute('title', t(el.dataset.i18nTitle));
+            });
+            document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+                el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
+            });
+        }
+
+        hydrateStaticStrings();
 
         // ── DOM refs ──────────────────────────────────────────────────────────
         const screenStart   = document.getElementById('screen-start');
@@ -624,7 +663,7 @@
             gameRunning = true;
             placeFood();
             updateScoreDisplay(0);
-            btnPause.textContent   = 'Pause';
+            btnPause.textContent   = t('game.pauseInitial');
             btnPause.setAttribute('aria-pressed', 'false');
         }
 
@@ -649,7 +688,7 @@
             score = newScore;
             scoreValue.textContent = score;
             // Polite live region – announced without interrupting the user
-            scoreAnn.textContent = `Score: ${score}`;
+            scoreAnn.textContent = format(t('announce.scoreUpdated'), { score });
         }
 
         // ── Game loop ─────────────────────────────────────────────────────────
@@ -775,10 +814,10 @@
                 ctx.fillStyle = '#fff';
                 ctx.font = 'bold 32px system-ui';
                 ctx.textAlign = 'center';
-                ctx.fillText('PAUSED', W / 2, H / 2 - 10);
+                ctx.fillText(t('canvas.pausedHeading'), W / 2, H / 2 - 10);
                 ctx.font = '14px system-ui';
                 ctx.fillStyle = COLOR.text();
-                ctx.fillText('Press P or click Pause to resume', W / 2, H / 2 + 20);
+                ctx.fillText(t('canvas.pausedHint'), W / 2, H / 2 + 20);
             }
         }
 
@@ -788,7 +827,7 @@
             stopLoop();
 
             // Assertive live region – interrupts the screen reader immediately
-            gameAnn.textContent = won ? 'You Win!' : 'Game Over';
+            gameAnn.textContent = won ? t('announce.youWin') : t('announce.gameOver');
 
             finalScore.textContent = score;
             submitStatus.textContent = '';
@@ -798,12 +837,12 @@
 
             if (won) {
                 resultIcon.textContent    = '🏆';
-                resultHeading.textContent = 'You Win!';
-                resultMsg.textContent     = `Amazing! You reached ${score} points on ${difficulty}.`;
+                resultHeading.textContent = t('result.winTitle');
+                resultMsg.textContent     = format(t('result.winBody'), { score, difficulty });
             } else {
                 resultIcon.textContent    = '💀';
-                resultHeading.textContent = 'Game Over';
-                resultMsg.textContent     = `You scored ${score} points on ${difficulty}. Try again?`;
+                resultHeading.textContent = t('result.gameOverTitle');
+                resultMsg.textContent     = format(t('result.lossBody'), { score, difficulty });
             }
 
             showScreen(screenResult, resultHeading);
@@ -847,14 +886,14 @@
         function togglePause() {
             if (!gameRunning) return;
             paused = !paused;
-            btnPause.textContent = paused ? 'Resume' : 'Pause';
+            btnPause.textContent = paused ? t('game.resumeToggle') : t('game.pauseInitial');
             btnPause.setAttribute('aria-pressed', String(paused));
             if (paused) {
                 stopLoop();
-                gameAnn.textContent = 'Game paused';
+                gameAnn.textContent = t('announce.paused');
                 drawFrame();
             } else {
-                gameAnn.textContent = 'Game resumed';
+                gameAnn.textContent = t('announce.resumed');
                 startLoop();
             }
         }
@@ -900,9 +939,9 @@
             const diff        = difficulty;          // one of EASY | MEDIUM | HARD
             const sc          = score;               // non-negative integer
 
-            const NICKNAME_RE = /^[A-Za-z0-9]{1,20}$/;
+            const NICKNAME_RE = /^[A-Za-z0-9_]{1,20}$/;
             if (!NICKNAME_RE.test(rawNickname)) {
-                submitStatus.textContent = 'Nickname must be 1–20 alphanumeric characters.';
+                submitStatus.textContent = t('nickname.clientValidationError');
                 submitStatus.className   = 'error';
                 nicknameInput.focus();
                 return;
@@ -923,16 +962,16 @@
                 });
 
                 if (res.ok) {
-                    submitStatus.textContent = '✓ Score submitted to the leaderboard!';
+                    submitStatus.textContent = t('submit.success');
                     submitStatus.className   = 'success';
                 } else {
                     const body = await res.json().catch(() => ({}));
-                    submitStatus.textContent = body.message ?? 'Submission failed. Please try again.';
+                    submitStatus.textContent = body.message ?? t('submit.fallbackError');
                     submitStatus.className   = 'error';
                     btnSubmit.disabled = false;
                 }
             } catch {
-                submitStatus.textContent = 'Network error. Score not submitted.';
+                submitStatus.textContent = t('submit.networkError');
                 submitStatus.className   = 'error';
                 btnSubmit.disabled = false;
             }
