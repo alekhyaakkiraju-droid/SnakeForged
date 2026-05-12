@@ -39,3 +39,11 @@ data/
 .env
 .env.local
 application-local.yml
+
+# Terraform — provider cache and local state (lockfile IS committed for reproducibility)
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraformrc
+terraform.rc
