@@ -1,20 +1,165 @@
 # SnakeForged
 
-A Java/Spring Boot port of a classic Snake game with persistent highscores.
+**Snake Web** is a browser-playable Snake game backed by a **Spring Boot 3** API. The server serves the static UI, stores high scores in an embedded **H2** database (Flyway-managed schema), exposes JSON REST endpoints for difficulties and leaderboard data, and ships observability endpoints for operations (health checks, Prometheus metrics).
 
-## Database
+## Prerequisites
 
-The application uses an embedded H2 database (file-backed) managed by Flyway.
+| Tool | Notes |
+|------|------|
+| **Java 17** | Required for compile and runtime (matches Gradle toolchain). |
+| **Gradle 8.x** | Use the project wrapper `./gradlew` (currently **Gradle 8.8** — see `gradle/wrapper/gradle-wrapper.properties`). |
+| **Docker** (optional) | For container image build/run as documented below. |
 
-### Switching from H2 to PostgreSQL
+## Build
+
+From the repository root:
+
+```bash
+./gradlew build
+```
+
+Run only unit and integration tests (no Jar):
+
+```bash
+./gradlew test
+```
+
+Jacoco HTML report: `game-api/build/reports/jacoco/test/html/index.html`.
+
+## Run locally
+
+### Gradle (recommended for development)
+
+The `game-api` module aggregates the JVM app and static frontend:
+
+```bash
+./gradlew :game-api:bootRun
+```
+
+`bootRun` is configured with `--spring.profiles.active=dev`, which switches to the in-memory H2 profile in `application-dev.yml`.
+
+The app listens on **http://localhost:8080** by default.
+
+### Docker
+
+Build a production-style image (boot JAR, no tests in the image build):
+
+```bash
+docker build -t snakeforged:local .
+docker run --rm -p 8080:8080 snakeforged:local
+```
+
+The default image uses the main `application.yml` profile (file-backed H2 under `./data` relative to the process working directory).
+
+### Post-deploy smoke check
+
+```bash
+./scripts/smoke-test.sh http://localhost:8080
+```
+
+## API reference
+
+Base URL: `http://localhost:8080` (or your deployed host). All JSON responses use typical Spring Boot problem/validation bodies on error (see `GlobalExceptionHandler`).
+
+### 1. `GET /api/v1/difficulties`
+
+Lists supported game difficulties (cached for five minutes).
+
+**Response `200 OK`:**
+
+```json
+[
+  {"name": "EASY", "displayName": "Easy", "tickIntervalMs": 100},
+  {"name": "MEDIUM", "displayName": "Medium", "tickIntervalMs": 70},
+  {"name": "HARD", "displayName": "Hard", "tickIntervalMs": 40}
+]
+```
+
+---
+
+### 2. `GET /api/v1/highscores?difficulty={EASY|MEDIUM|HARD}`
+
+Returns up to ten scores for one difficulty (newest-first ordering is persistence-defined).
+
+**Example:** `GET /api/v1/highscores?difficulty=EASY`
+
+**Response `200 OK`:**
+
+```json
+[
+  {
+    "nickname": "Ada",
+    "score": 1200,
+    "difficulty": "EASY",
+    "createdAt": "2026-05-12T13:06:52"
+  }
+]
+```
+
+Validation: unknown difficulty strings return `400 Bad Request` with a structured error payload.
+
+---
+
+### 3. `POST /api/v1/highscores`
+
+Submits one score entry (rate limiting applies).
+
+**Request body (`application/json`):**
+
+```json
+{
+  "nickname": "Ada",
+  "score": 420,
+  "difficulty": "EASY"
+}
+```
+
+| Field | Rules |
+|-------|-------|
+| `nickname` | Required, alphanumeric + underscores, max 20 characters |
+| `score` | Required integer ≥ 0 |
+| `difficulty` | One of `EASY`, `MEDIUM`, `HARD` (case-insensitive) |
+
+**Response `201 Created`:** body is the stored record as `HighscoreDTO` (same shape as list items).
+
+**Common errors:** `400` validation issues, `429` when the high-score rate limit is exceeded.
+
+---
+
+### Actuator & metrics
+
+| Path | Purpose |
+|------|---------|
+| `GET /actuator/health` | Overall health (details hidden by default). |
+| `GET /actuator/health/liveness` | Kubernetes-style liveness (`"UP"`). |
+| `GET /actuator/health/readiness` | Readiness (includes DB). |
+| `GET /actuator/prometheus` | Prometheus scrape endpoint (secured with HTTP Basic auth using **`OPERATOR_TOKEN`**). |
+
+Quick liveness probe:
+
+```bash
+curl -fsS http://localhost:8080/actuator/health/liveness
+```
+
+## Database & migrations
+
+- **Development default:** Flyway-managed schema on embedded **H2** (file-backed in the default profile; dev profile uses in-memory H2).
+- Migration scripts live in `game-persistence/src/main/resources/db/migration`.
+
+### Migrating from H2 to PostgreSQL
+
+Follow these steps on a developer machine before pointing production traffic at Postgres.
 
 1. **Add the PostgreSQL driver** to `game-persistence/build.gradle.kts`:
+
    ```kotlin
    runtimeOnly("org.postgresql:postgresql")
    ```
-   Remove the H2 dependency (`runtimeOnly("com.h2database:h2")`).
 
-2. **Update the datasource URL** in `game-api/src/main/resources/application.yml`:
+   Remove the H2 coordinate (`runtimeOnly("com.h2database:h2")`) when you no longer need H2.
+
+2. **Point Spring at PostgreSQL** in `game-api/src/main/resources/application.yml` (or an externalised config overlay):
+
    ```yaml
    spring:
      datasource:
@@ -24,7 +169,78 @@ The application uses an embedded H2 database (file-backed) managed by Flyway.
        password: <your-password>
    ```
 
-3. **Flyway migrations** are already written in standard SQL (no H2-specific syntax).
-   The `GENERATED BY DEFAULT AS IDENTITY` primary key syntax is supported by PostgreSQL 10+.
+3. **Run Flyway** by starting the app (or `./gradlew :game-api:bootRun`): Flyway executes pending SQL migrations automatically when enabled.
 
-4. **JPA dialect** is auto-detected by Spring Boot — no manual dialect configuration is needed.
+4. **Verify dialect & SQL compatibility:** existing migrations aim for Postgres-compatible DDL (`GENERATED BY DEFAULT AS IDENTITY`).
+
+5. **Data movement (optional):** H2-native exports are outside this repo — use `pg_dump`/`COPY` workflows or replay traffic after cutover depending on operational needs.
+
+6. **Clean up:** tune connection pool sizing (`spring.datasource.hikari.*`) for your deployment size.
+
+## Environment variables
+
+Spring Boot honours standard `SPRING_*` overrides — see [Spring Boot Externalised Configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html). Commonly customised values:
+
+| Variable | Purpose |
+|----------|---------|
+| `SPRING_PROFILES_ACTIVE` | Comma-separated profiles (`dev`, etc.). ECS/Terraform deployments typically set profile per environment. |
+| `SPRING_DATASOURCE_URL` | Overrides JDBC URL (e.g. Postgres in production). |
+| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | Database credentials when not inlined in YAML. |
+| `OPERATOR_TOKEN` | Shared secret used for Basic auth against `/actuator/prometheus`. Defaults to `changeme-dev-only` if unset (**change in any shared environment**). |
+| `SERVER_PORT` | HTTP listen port (default `8080`). |
+
+YAML fallbacks (`application.yml`): `game-api` configures request body limits and rate-limit keys — override with `SPRING_APPLICATION_JSON` / relaxed binding keys if needed for operations.
+
+## Deployment
+
+High-level AWS layout (Terraform) is under `infrastructure/`. Operators should follow **`docs/terraform-bootstrap.md`** before the first remote apply.
+
+Image build expectations: see the root `Dockerfile` (multi-stage JAR build + JRE runtime).
+
+## Operational runbook
+
+### Health checks
+
+- **Liveness:** `GET /actuator/health/liveness` must return HTTP 200 with `"UP"`.
+- **Readiness:** `GET /actuator/health/readiness` should include database readiness before receiving production traffic.
+
+### Logs
+
+- **Local / bare metal:** structured logs go to stdout (Logback + Logstash encoder).
+- **AWS ECS:** application logs land in **CloudWatch Logs** (log group `/ecs/snakeforged-<environment>` per Terraform). Use CloudWatch Logs Insights or your log vendor’s forwarder.
+
+### Rollback
+
+**Goal:** restore the last known-good container image.
+
+1. Identify the previously deployed **ECR image tag** (often the Git short SHA baked by CI/CD).
+2. **Re-deploy** that immutable tag to ECS (same cluster/service): register a revised task definition with the old digest/tag and force a service deployment (`aws ecs update-service --force-new-deployment` after registering the revision).
+3. Wait for ECS steady state (`aws ecs wait services-stable`).
+4. Re-run **`./scripts/smoke-test.sh <public-base-url>`** against the environment.
+
+Terraform pins `ignore_changes` on ECS task definitions for this workload so infra applies do not fight image roll-forward/rollback.
+
+### Troubleshooting
+
+| Symptom | Check |
+|---------|-------|
+| 502 / target unhealthy | ECS task health checks, ALB target group thresholds, CloudWatch logs for boot errors. |
+| 429 on POST highscores | Rate limit buckets — see application rate-limit documentation in `game-api/config`. |
+| 401 against Prometheus | `OPERATOR_TOKEN` mismatch vs scraper credentials. |
+
+## Testing & quality
+
+```bash
+./gradlew build
+```
+
+CI expectations: `./gradlew build` exercises unit and integration suites under `game-api/src/test/java` (JUnit 5).
+
+## Related documentation
+
+- **`docs/terraform-bootstrap.md`** — first-time AWS/Terraform setup.
+- **`docs/cross-browser-test-matrix.md`** — browser coverage notes for the static UI.
+
+## History
+
+This repository started as a **C# / .NET** Snake implementation; the current **Java / Spring Boot** codebase is a ground-up port focused on a web-first experience, structured logging, and cloud-friendly packaging. Historical C# sources are not maintained here.
