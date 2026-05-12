@@ -19,6 +19,7 @@ public class GameEngine {
     private final int width;
     private final int height;
     private final Random random;
+    private final DifficultyConfig difficulty;
 
     private final Deque<Position> snake = new ArrayDeque<>();
     private Position food;
@@ -35,14 +36,17 @@ public class GameEngine {
      *
      * @param width       number of columns (must be >= 2)
      * @param height      number of rows (must be >= 2)
+     * @param difficulty  tick-interval configuration; caller uses
+     *                    {@link DifficultyConfig#getTickIntervalMs()} to schedule ticks
      * @param random      injectable Random so tests can use a fixed seed
      */
-    public GameEngine(int width, int height, Random random) {
+    public GameEngine(int width, int height, DifficultyConfig difficulty, Random random) {
         if (width < 2 || height < 2) {
             throw new IllegalArgumentException("Grid must be at least 2x2");
         }
         this.width = width;
         this.height = height;
+        this.difficulty = difficulty;
         this.random = random;
 
         // Snake starts in the middle heading right, length 1
@@ -57,9 +61,22 @@ public class GameEngine {
         food = spawnFood();
     }
 
-    /** Convenience constructor using an unseeded Random. */
+    /**
+     * Creates a new game with the given difficulty using an unseeded Random.
+     * Use the 4-arg constructor in tests to inject a seeded Random.
+     */
+    public GameEngine(int width, int height, DifficultyConfig difficulty) {
+        this(width, height, difficulty, new Random());
+    }
+
+    /** Creates a new game at MEDIUM difficulty with an injectable Random (test-friendly). */
+    public GameEngine(int width, int height, Random random) {
+        this(width, height, DifficultyConfig.MEDIUM, random);
+    }
+
+    /** Convenience constructor: MEDIUM difficulty, unseeded Random. */
     public GameEngine(int width, int height) {
-        this(width, height, new Random());
+        this(width, height, DifficultyConfig.MEDIUM, new Random());
     }
 
     /**
@@ -123,10 +140,11 @@ public class GameEngine {
         }
     }
 
-    public GameStatus getStatus()        { return status; }
-    public int getScore()                { return score; }
-    public Direction getDirection()      { return currentDirection; }
-    public Position getFoodPosition()    { return food; }
+    public GameStatus getStatus()          { return status; }
+    public int getScore()                  { return score; }
+    public Direction getDirection()        { return currentDirection; }
+    public Position getFoodPosition()      { return food; }
+    public DifficultyConfig getDifficulty(){ return difficulty; }
 
     /** Returns an unmodifiable snapshot of the snake body, head first. */
     public List<Position> getSnake() {
