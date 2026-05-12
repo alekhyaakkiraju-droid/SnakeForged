@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   secrets-scan:
@@ -27,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Semgrep scan
-        run: semgrep scan --config auto --error --metrics=off .
+        run: semgrep scan --config p/java --config p/secrets --error .
 
   gradle-and-docker:
     name: Gradle build & Docker build (no push)
