@@ -1,6 +1,8 @@
 package com.snakeforged.domain;
 
 import org.junit.jupiter.api.Test;
+import com.snakeforged.domain.DifficultyResolutionException;
+import com.snakeforged.domain.ImplausibleScoreException;
 
 import java.util.Random;
 
@@ -63,15 +65,20 @@ class DifficultyConfigTest {
     @Test
     void fromNameInvalidThrows() {
         assertThatThrownBy(() -> DifficultyConfig.fromName("invalid"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("invalid")
-                .hasMessageContaining("EASY, MEDIUM, HARD");
+                .isInstanceOf(DifficultyResolutionException.class)
+                .satisfies(ex -> assertThat(((DifficultyResolutionException) ex).getRequestedName()).isEqualTo("invalid"));
     }
 
     @Test
     void fromNameEmptyStringThrows() {
         assertThatThrownBy(() -> DifficultyConfig.fromName(""))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(DifficultyResolutionException.class);
+    }
+
+    @Test
+    void fromNameNullThrows() {
+        assertThatThrownBy(() -> DifficultyConfig.fromName(null))
+                .isInstanceOf(DifficultyResolutionException.class);
     }
 
     // ── GameEngine integration ────────────────────────────────────────────────

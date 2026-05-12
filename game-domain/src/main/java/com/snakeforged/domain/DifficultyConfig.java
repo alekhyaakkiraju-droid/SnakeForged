@@ -30,15 +30,17 @@ public enum DifficultyConfig {
      *
      * @param name the difficulty name (e.g. "easy", "MEDIUM", "Hard")
      * @return the matching {@code DifficultyConfig}
-     * @throws IllegalArgumentException if no match is found
+     * @throws DifficultyResolutionException if no match is found (including null input)
      */
     public static DifficultyConfig fromName(String name) {
+        if (name == null) {
+            throw new DifficultyResolutionException("");
+        }
         for (DifficultyConfig d : values()) {
             if (d.name().equalsIgnoreCase(name)) {
                 return d;
             }
         }
-        throw new IllegalArgumentException(
-                "Unknown difficulty: '" + name + "'. Valid values: EASY, MEDIUM, HARD");
+        throw new DifficultyResolutionException(name);
     }
 }

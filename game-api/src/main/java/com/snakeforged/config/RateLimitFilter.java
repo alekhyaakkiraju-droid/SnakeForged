@@ -1,10 +1,13 @@
 package com.snakeforged.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snakeforged.api.error.ErrorResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -15,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -29,15 +33,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final int requestsPerMinute;
     private final int windowSeconds;
+    private final MessageSource messageSource;
+    private final ObjectMapper objectMapper;
 
-    // Per-IP sliding window of request timestamps
     private final ConcurrentHashMap<String, Deque<Instant>> requestLog = new ConcurrentHashMap<>();
 
     public RateLimitFilter(
             @Value("${ratelimit.highscore.requests-per-minute:10}") int requestsPerMinute,
-            @Value("${ratelimit.highscore.window-seconds:60}") int windowSeconds) {
+            @Value("${ratelimit.highscore.window-seconds:60}") int windowSeconds,
+            MessageSource messageSource,
+            ObjectMapper objectMapper) {
         this.requestsPerMinute = requestsPerMinute;
         this.windowSeconds = windowSeconds;
+        this.messageSource = messageSource;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -50,6 +59,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
+        Locale locale = request.getLocale();
         String ip = request.getRemoteAddr();
         Instant now = Instant.now();
         Instant windowStart = now.minusSeconds(windowSeconds);
@@ -57,7 +67,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         Deque<Instant> timestamps = requestLog.computeIfAbsent(ip, k -> new ArrayDeque<>());
 
         synchronized (timestamps) {
-            // Evict entries outside the current window
             while (!timestamps.isEmpty() && timestamps.peekFirst().isBefore(windowStart)) {
                 timestamps.pollFirst();
             }
@@ -67,12 +76,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 long retryAfter = Math.max(1,
                         windowSeconds - Duration.between(oldest, now).getSeconds());
 
+                String message = messageSource.getMessage(
+                        "error.rate_limit.exceeded",
+                        new Object[]{requestsPerMinute, windowSeconds},
+                        locale);
+
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setHeader("Retry-After", String.valueOf(retryAfter));
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write(String.format(
-                        "{\"timestamp\":\"%s\",\"status\":429,\"message\":\"Rate limit exceeded — max %d requests per %d seconds\",\"path\":\"%s\"}",
-                        now, requestsPerMinute, windowSeconds, request.getRequestURI()));
+                String body = objectMapper.writeValueAsString(
+                        ErrorResponse.of(HttpStatus.TOO_MANY_REQUESTS.value(), message, request.getRequestURI()));
+                response.getWriter().write(body);
                 return;
             }
 

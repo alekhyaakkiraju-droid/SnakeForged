@@ -1,6 +1,8 @@
 package com.snakeforged.api.highscore;
 
 import com.snakeforged.audit.AuditService;
+import com.snakeforged.domain.DifficultyResolutionException;
+import com.snakeforged.domain.ImplausibleScoreException;
 import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.entity.HighscoreEntry;
 import com.snakeforged.persistence.repository.HighscoreRepository;
@@ -84,21 +86,20 @@ class HighscoreServiceTest {
     }
 
     @Test
-    void invalidDifficultyThrowsIllegalArgumentException() {
+    void invalidDifficultyThrowsResolutionException() {
         HighscoreRequestDTO req = new HighscoreRequestDTO("Dave", 100, "ULTRA");
 
         assertThatThrownBy(() -> service.submitScore(req, "hash"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ULTRA");
+                .isInstanceOf(DifficultyResolutionException.class)
+                .satisfies(ex -> assertThat(((DifficultyResolutionException) ex).getRequestedName()).isEqualTo("ULTRA"));
     }
 
     @Test
-    void implausibleScoreThrowsIllegalArgumentException() {
+    void implausibleScoreThrowsImplausibleScoreException() {
         HighscoreRequestDTO req = new HighscoreRequestDTO("Eve", HighscoreService.MAX_PLAUSIBLE_SCORE + 1, "EASY");
 
         assertThatThrownBy(() -> service.submitScore(req, "hash"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("implausible");
+                .isInstanceOf(ImplausibleScoreException.class);
     }
 
     @Test
@@ -127,7 +128,7 @@ class HighscoreServiceTest {
     void invalidDifficultyIncrementsRejectedCounter() {
         assertThatThrownBy(() ->
                 service.submitScore(new HighscoreRequestDTO("Alice", 100, "INVALID"), "hash"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(DifficultyResolutionException.class);
 
         assertThat(counter("snakeweb_highscore_submissions_rejected_total")).isEqualTo(1.0);
         assertThat(counter("snakeweb_highscore_submissions_total")).isEqualTo(0.0);
@@ -138,7 +139,7 @@ class HighscoreServiceTest {
         assertThatThrownBy(() ->
                 service.submitScore(
                         new HighscoreRequestDTO("Alice", HighscoreService.MAX_PLAUSIBLE_SCORE + 1, "EASY"), "hash"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ImplausibleScoreException.class);
 
         assertThat(counter("snakeweb_highscore_submissions_rejected_total")).isEqualTo(1.0);
     }

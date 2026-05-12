@@ -2,6 +2,8 @@ package com.snakeforged.api.highscore;
 
 import com.snakeforged.audit.AuditService;
 import com.snakeforged.domain.DifficultyConfig;
+import com.snakeforged.domain.DifficultyResolutionException;
+import com.snakeforged.domain.ImplausibleScoreException;
 import com.snakeforged.observability.MetricsService;
 import com.snakeforged.persistence.entity.HighscoreEntry;
 import com.snakeforged.persistence.repository.HighscoreRepository;
@@ -38,21 +40,21 @@ public class HighscoreService {
      * @param request      validated request DTO (bean validation already applied by Spring MVC)
      * @param clientIpHash SHA-256 hex hash of the submitter's IP address
      * @return the persisted {@link HighscoreEntry}
-     * @throws IllegalArgumentException if difficulty is unknown or score is implausible
+     * @throws DifficultyResolutionException if difficulty is unknown
+     * @throws ImplausibleScoreException     if score is implausible for the difficulty tier
      */
     public HighscoreEntry submitScore(HighscoreRequestDTO request, String clientIpHash) {
         DifficultyConfig config;
         try {
             config = DifficultyConfig.fromName(request.difficulty());
-        } catch (IllegalArgumentException e) {
+        } catch (DifficultyResolutionException e) {
             metricsService.recordRejection();
-            throw new IllegalArgumentException(e.getMessage());
+            throw e;
         }
 
         if (request.score() > MAX_PLAUSIBLE_SCORE) {
             metricsService.recordRejection();
-            throw new IllegalArgumentException(
-                    "Score " + request.score() + " is implausible for difficulty " + config.name());
+            throw new ImplausibleScoreException(request.score(), config.name());
         }
 
         HighscoreEntry entry = new HighscoreEntry();
