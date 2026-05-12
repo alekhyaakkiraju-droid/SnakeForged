@@ -10,9 +10,16 @@ build/
 .gradle/
 *.jar
 *.exe
+*.dll
+*.csproj
+*.sln
 out/
 target/
 *.class
+
+# Legacy .NET / Visual Studio artefacts (historical Snake port)
+[Bb]in/
+[Oo]bj/
 
 # IDE and editor files
 .idea/
