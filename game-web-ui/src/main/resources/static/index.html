@@ -564,11 +564,18 @@
             btnPause.setAttribute('aria-pressed', 'false');
         }
 
+        // Use crypto.getRandomValues() rather than Math.random() so the food
+        // placement uses a cryptographically unpredictable source.
+        function randInt(max) {
+            const buf = new Uint32Array(1);
+            crypto.getRandomValues(buf);
+            return buf[0] % max;
+        }
+
         function placeFood() {
             let pos;
             do {
-                pos = { x: Math.floor(Math.random() * COLS),
-                        y: Math.floor(Math.random() * ROWS) };
+                pos = { x: randInt(COLS), y: randInt(ROWS) };
             } while (snake.some(s => s.x === pos.x && s.y === pos.y));
             food = pos;
         }
@@ -795,16 +802,21 @@
         submitForm.addEventListener('submit', async e => {
             e.preventDefault();
 
-            const nickname = nicknameInput.value.trim();
-            const diff     = difficulty;
-            const sc       = score;
+            // Capture safe, validated values before any async work
+            const rawNickname = nicknameInput.value.trim();
+            const diff        = difficulty;          // one of EASY | MEDIUM | HARD
+            const sc          = score;               // non-negative integer
 
-            if (!/^[A-Za-z0-9]{1,20}$/.test(nickname)) {
+            const NICKNAME_RE = /^[A-Za-z0-9]{1,20}$/;
+            if (!NICKNAME_RE.test(rawNickname)) {
                 submitStatus.textContent = 'Nickname must be 1–20 alphanumeric characters.';
                 submitStatus.className   = 'error';
                 nicknameInput.focus();
                 return;
             }
+
+            // Snapshot validated value to ensure no mutation after validation
+            const nickname = rawNickname;
 
             btnSubmit.disabled = true;
             submitStatus.textContent = '';
