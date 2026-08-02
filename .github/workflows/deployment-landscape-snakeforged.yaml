@@ -188,37 +188,53 @@ jobs:
           with open(manifest_path, "w") as f:
               json.dump(manifest, f, indent=2)
 
+          cache_control = "no-cache, no-store, must-revalidate"
           subprocess.run(
-              ["aws", "s3", "cp", "/tmp/landscape/index.html", f"s3://{bucket}/{app}/index.html"],
+              [
+                  "aws", "s3", "cp", "/tmp/landscape/index.html",
+                  f"s3://{bucket}/{app}/index.html",
+                  "--cache-control", cache_control,
+              ],
               check=True,
           )
           subprocess.run(
-              ["aws", "s3", "cp", manifest_path, f"s3://{bucket}/manifest.json"],
+              [
+                  "aws", "s3", "cp", manifest_path,
+                  f"s3://{bucket}/manifest.json",
+                  "--cache-control", cache_control,
+              ],
               check=True,
           )
 
-          dist = subprocess.run(
-              [
-                  "aws", "cloudfront", "list-distributions",
-                  "--query", "DistributionList.Items[?contains(Aliases.Items, 'deployments.agent.opsera.dev')].Id",
-                  "--output", "text",
-              ],
-              capture_output=True,
-              text=True,
-          )
-          dist_id = dist.stdout.strip()
+          dist_id = os.environ.get("CLOUDFRONT_DISTRIBUTION_ID", "").strip()
+          if not dist_id:
+              dist = subprocess.run(
+                  [
+                      "aws", "cloudfront", "list-distributions",
+                      "--query", "DistributionList.Items[?contains(Aliases.Items, 'deployments.agent.opsera.dev')].Id",
+                      "--output", "text",
+                  ],
+                  capture_output=True,
+                  text=True,
+              )
+              dist_id = dist.stdout.strip()
+
           if dist_id:
               subprocess.run(
                   [
                       "aws", "cloudfront", "create-invalidation",
                       "--distribution-id", dist_id,
-                      "--paths", f"/{app}/*", "/manifest.json",
+                      "--paths", f"/{app}/*", "/manifest.json", "/", "/index.html",
                   ],
                   check=True,
               )
+              print(f"CloudFront invalidation submitted for distribution {dist_id}")
+          else:
+              print("Warning: CloudFront distribution not found; hub index may stay cached until TTL expires.")
           print(f"Published {app} ({env}) to https://deployments.agent.opsera.dev/")
           PY
         env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
           STATUS: ${{ steps.collect.outputs.status }}
           HEALTH: ${{ steps.collect.outputs.health }}
           SYNC_STATUS: ${{ steps.collect.outputs.sync_status }}
