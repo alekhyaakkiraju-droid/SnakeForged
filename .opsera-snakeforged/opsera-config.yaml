@@ -1,0 +1,15 @@
+tenant: opsera
+app_name: snakeforged
+cloud_provider: aws
+region: us-west-2
+mode: quick
+environments:
+  - dev
+deployment_strategy:
+  dev: rolling
+hub_cluster: argocd-usw2
+spoke_cluster: opsera-usw2-np
+argocd_server: argocd-usw2.agent.opsera.dev
+domain: agent.opsera.dev
+ecr_repository: opsera/snakeforged
+ingress_host: snakeforged-dev.agent.opsera.dev

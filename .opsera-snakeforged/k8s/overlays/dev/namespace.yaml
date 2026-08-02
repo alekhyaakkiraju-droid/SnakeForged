@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opsera-snakeforged-dev
+  labels:
+    app: snakeforged
+    tenant: opsera
+    environment: dev
+    managed-by: opsera-c2c

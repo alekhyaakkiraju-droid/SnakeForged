@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: snakeforged-config
+  labels:
+    app: snakeforged
+    tenant: opsera
+data:
+  APP_NAME: "snakeforged"
+  LOG_LEVEL: "info"
+  SPRING_PROFILES_ACTIVE: "dev"

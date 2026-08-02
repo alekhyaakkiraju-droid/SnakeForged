@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opsera-snakeforged-dev
+  namespace: argocd
+  labels:
+    tenant: opsera
+    app: snakeforged
+    environment: dev
+    managed-by: opsera-c2c
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/alekhyaakkiraju-droid/SnakeForged.git
+    targetRevision: main
+    path: .opsera-snakeforged/k8s/overlays/dev
+  destination:
+    name: opsera-usw2-np
+    namespace: opsera-snakeforged-dev
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
