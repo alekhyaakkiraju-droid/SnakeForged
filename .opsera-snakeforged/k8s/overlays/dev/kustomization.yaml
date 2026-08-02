@@ -12,10 +12,6 @@ patches:
     target:
       kind: Deployment
       name: snakeforged
-  - path: ingress.yaml
-    target:
-      kind: Ingress
-      name: snakeforged
 
 images:
   - name: PLACEHOLDER_ECR_URI

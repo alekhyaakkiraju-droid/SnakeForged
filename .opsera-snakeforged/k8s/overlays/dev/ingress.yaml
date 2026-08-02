@@ -1,9 +1,0 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: snakeforged
-  labels:
-    environment: dev
-spec:
-  rules:
-    - host: snakeforged-dev.agent.opsera.dev
