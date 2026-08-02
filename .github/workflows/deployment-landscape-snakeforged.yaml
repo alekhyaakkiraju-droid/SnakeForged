@@ -1,0 +1,235 @@
+name: Deployment Landscape snakeforged
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to publish
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+  workflow_call:
+    inputs:
+      environment:
+        description: Environment to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TENANT: opsera
+  APP_NAME: snakeforged
+  ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+  AWS_REGION: us-west-2
+  HUB_CLUSTER: argocd-usw2
+  SPOKE_CLUSTER: opsera-usw2-np
+  S3_BUCKET: opsera-deployment-landscapes
+  REPO: alekhyaakkiraju-droid/SnakeForged
+
+jobs:
+  publish-landscape:
+    name: Publish Deployment Landscape
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Collect Deployment Status
+        id: collect
+        run: |
+          NAMESPACE="${TENANT}-${APP_NAME}-${ENVIRONMENT}"
+          APP_URL="https://${APP_NAME}-${ENVIRONMENT}.agent.opsera.dev"
+          COMMIT_SHA="${GITHUB_SHA}"
+
+          aws eks update-kubeconfig --name "${SPOKE_CLUSTER}" --region "${AWS_REGION}" >/dev/null
+          READY=$(kubectl get deployment "${APP_NAME}" -n "${NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+          DESIRED=$(kubectl get deployment "${APP_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "0")
+          PODS="${READY:-0}/${DESIRED:-0}"
+
+          IMAGE=$(kubectl get deployment "${APP_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "N/A")
+          IMAGE_TAG="${IMAGE##*:}"
+
+          if [ "${READY}" = "${DESIRED}" ] && [ "${READY}" != "0" ]; then
+            STATUS="LIVE"
+          elif [ "${READY}" != "0" ]; then
+            STATUS="DEGRADED"
+          else
+            STATUS="DOWN"
+          fi
+
+          aws eks update-kubeconfig --name "${HUB_CLUSTER}" --region "${AWS_REGION}" >/dev/null
+          APP_FULL="${TENANT}-${APP_NAME}-${ENVIRONMENT}"
+          HEALTH=$(kubectl get application "${APP_FULL}" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+          SYNC_STATUS=$(kubectl get application "${APP_FULL}" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+
+          GENERATED=$(date -u +"%Y-%m-%d %H:%M UTC")
+          {
+            echo "status=${STATUS}"
+            echo "health=${HEALTH}"
+            echo "sync_status=${SYNC_STATUS}"
+            echo "pods=${PODS}"
+            echo "image_tag=${IMAGE_TAG}"
+            echo "app_url=${APP_URL}"
+            echo "generated=${GENERATED}"
+            echo "commit=${COMMIT_SHA:0:7}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate App Landscape Page
+        env:
+          STATUS: ${{ steps.collect.outputs.status }}
+          HEALTH: ${{ steps.collect.outputs.health }}
+          SYNC_STATUS: ${{ steps.collect.outputs.sync_status }}
+          PODS: ${{ steps.collect.outputs.pods }}
+          IMAGE_TAG: ${{ steps.collect.outputs.image_tag }}
+          APP_URL: ${{ steps.collect.outputs.app_url }}
+          GENERATED: ${{ steps.collect.outputs.generated }}
+          COMMIT: ${{ steps.collect.outputs.commit }}
+        run: |
+          mkdir -p /tmp/landscape
+          case "${STATUS}" in
+            LIVE) STATUS_CLASS=live ;;
+            DEGRADED) STATUS_CLASS=degraded ;;
+            *) STATUS_CLASS=down ;;
+          esac
+          cat > /tmp/landscape/index.html <<EOF
+          <!DOCTYPE html>
+          <html lang="en" data-theme="dark">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${APP_NAME} — ${ENVIRONMENT} landscape</title>
+            <style>
+              body{font-family:monospace;background:#0a0a0a;color:#d4d4d4;padding:2rem;max-width:900px;margin:0 auto}
+              h1{font-size:20px;margin-bottom:0.5rem}
+              .muted{color:#777;font-size:12px}
+              table{border-collapse:collapse;width:100%;margin-top:1.5rem}
+              td,th{border:1px solid #2a2a2a;padding:8px 10px;text-align:left;font-size:13px}
+              .live{color:#22c55e}.degraded{color:#eab308}.down{color:#ef4444}
+              a{color:#d4d4d4}
+            </style>
+          </head>
+          <body>
+            <h1>${APP_NAME} / ${ENVIRONMENT}</h1>
+            <p class="muted">Opsera Code-to-Cloud deployment landscape</p>
+            <table>
+              <tr><th>Status</th><td class="${STATUS_CLASS}">${STATUS}</td></tr>
+              <tr><th>Health</th><td>${HEALTH}</td></tr>
+              <tr><th>Sync</th><td>${SYNC_STATUS}</td></tr>
+              <tr><th>Pods</th><td>${PODS}</td></tr>
+              <tr><th>Image tag</th><td>${IMAGE_TAG}</td></tr>
+              <tr><th>Commit</th><td>${COMMIT}</td></tr>
+              <tr><th>Updated</th><td>${GENERATED}</td></tr>
+              <tr><th>App URL</th><td><a href="${APP_URL}">${APP_URL}</a></td></tr>
+              <tr><th>Repository</th><td><a href="https://github.com/${REPO}">${REPO}</a></td></tr>
+            </table>
+            <p class="muted" style="margin-top:2rem"><a href="https://deployments.agent.opsera.dev/">← All applications</a></p>
+          </body>
+          </html>
+          EOF
+
+      - name: Publish to Deployment Hub
+        run: |
+          python3 <<'PY'
+          import json, os, subprocess
+
+          bucket = os.environ["S3_BUCKET"]
+          app = os.environ["APP_NAME"]
+          repo = os.environ["REPO"]
+          env = os.environ["ENVIRONMENT"]
+          generated = os.environ["GENERATED"]
+          entry = {
+              "name": app,
+              "repo": repo,
+              "environment": env,
+              "status": os.environ["STATUS"],
+              "health": os.environ["HEALTH"],
+              "syncStatus": os.environ["SYNC_STATUS"],
+              "pods": os.environ["PODS"],
+              "commit": os.environ["COMMIT"],
+              "imageTag": os.environ["IMAGE_TAG"],
+              "lastUpdated": generated,
+              "appUrl": os.environ["APP_URL"],
+          }
+
+          manifest_path = "/tmp/hub-manifest.json"
+          try:
+              subprocess.run(
+                  ["aws", "s3", "cp", f"s3://{bucket}/manifest.json", manifest_path],
+                  check=True,
+                  capture_output=True,
+              )
+              with open(manifest_path) as f:
+                  manifest = json.load(f)
+          except subprocess.CalledProcessError:
+              manifest = {"lastUpdated": generated, "apps": []}
+
+          apps = [
+              a for a in manifest.get("apps", [])
+              if not (a.get("name") == app and a.get("environment") == env)
+          ]
+          apps.insert(0, entry)
+          manifest["apps"] = apps
+          manifest["lastUpdated"] = generated
+
+          with open(manifest_path, "w") as f:
+              json.dump(manifest, f, indent=2)
+
+          subprocess.run(
+              ["aws", "s3", "cp", "/tmp/landscape/index.html", f"s3://{bucket}/{app}/index.html"],
+              check=True,
+          )
+          subprocess.run(
+              ["aws", "s3", "cp", manifest_path, f"s3://{bucket}/manifest.json"],
+              check=True,
+          )
+
+          dist = subprocess.run(
+              [
+                  "aws", "cloudfront", "list-distributions",
+                  "--query", "DistributionList.Items[?contains(Aliases.Items, 'deployments.agent.opsera.dev')].Id",
+                  "--output", "text",
+              ],
+              capture_output=True,
+              text=True,
+          )
+          dist_id = dist.stdout.strip()
+          if dist_id:
+              subprocess.run(
+                  [
+                      "aws", "cloudfront", "create-invalidation",
+                      "--distribution-id", dist_id,
+                      "--paths", f"/{app}/*", "/manifest.json",
+                  ],
+                  check=True,
+              )
+          print(f"Published {app} ({env}) to https://deployments.agent.opsera.dev/")
+          PY
+        env:
+          STATUS: ${{ steps.collect.outputs.status }}
+          HEALTH: ${{ steps.collect.outputs.health }}
+          SYNC_STATUS: ${{ steps.collect.outputs.sync_status }}
+          PODS: ${{ steps.collect.outputs.pods }}
+          IMAGE_TAG: ${{ steps.collect.outputs.image_tag }}
+          APP_URL: ${{ steps.collect.outputs.app_url }}
+          GENERATED: ${{ steps.collect.outputs.generated }}
+          COMMIT: ${{ steps.collect.outputs.commit }}
+
+      - name: Show Hub Links
+        run: |
+          echo "Hub: https://deployments.agent.opsera.dev/"
+          echo "App: https://deployments.agent.opsera.dev/${APP_NAME}/"
+          echo "Live: https://${APP_NAME}-${ENVIRONMENT}.agent.opsera.dev"
