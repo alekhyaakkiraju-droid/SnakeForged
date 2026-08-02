@@ -20,7 +20,7 @@ patches:
 images:
   - name: PLACEHOLDER_ECR_URI
     newName: 792373136340.dkr.ecr.us-west-2.amazonaws.com/opsera/snakeforged
-    newTag: dev-7384346b-20260802212245
+    newTag: dev-f8cd93d6-20260802212858
 
 labels:
   - pairs:
